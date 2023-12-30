@@ -169,6 +169,7 @@ class bitsearch(object):
 
             while page <= pages:
                 page_url = f'{self.url}/search?q={what}&page={page}'
+
                 retrievedHtml = retrieve_url(page_url)
                 parser.feed(retrievedHtml)
                 page += 1
