@@ -215,7 +215,7 @@ class mypornclub(object):
         parser.feed(retrievedHtml)
             
         while page <= lastPage:
-            page_url = f'{self.url}/s/{what}/{page}'
+            page_url = f'{self.url}/s/{what}/seeders/{page}'
             retrievedHtml = retrieve_url(page_url)
             parser.feed(retrievedHtml)
             page += 1   
