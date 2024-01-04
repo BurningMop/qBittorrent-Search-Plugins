@@ -22,6 +22,8 @@
 
 import re
 import json
+import time
+import threading
 import urllib.request
 from html.parser import HTMLParser
 
@@ -81,7 +83,6 @@ class mypornclub(object):
                 parts[1] += '8'
                 first_url = 'https://sxyprn.com' + '/'.join(parts)
                 final_url = first_url
-                print(first_url)
                 user_agent = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'
                 headers = {'User-Agent': user_agent}
                 req = urllib.request.Request(url=first_url, headers=headers)
@@ -199,6 +200,15 @@ class mypornclub(object):
 
     def download_torrent(self, info):
         print(download_file(info))
+        
+        
+    def do_search(self, page, what):
+        parser = self.MyHtmlParser(self.url)
+        page_url = f'{self.url}/s/{what}/seeders/{page}'
+        retrievedHtml = retrieve_url(page_url)
+        parser.feed(retrievedHtml)
+        parser.close()
+
 
     def search(self, what, cat='all'):
         parser = self.MyHtmlParser(self.url)
@@ -213,10 +223,15 @@ class mypornclub(object):
         lastPage = int(pagination_pages[0].replace('<div>', '').replace('</div>', '').split(' ')[-1])
         page += 1
         parser.feed(retrievedHtml)
-            
-        while page <= lastPage:
-            page_url = f'{self.url}/s/{what}/seeders/{page}'
-            retrievedHtml = retrieve_url(page_url)
-            parser.feed(retrievedHtml)
-            page += 1   
         parser.close()
+        
+        threads = []
+        while page <= lastPage:
+            t = threading.Thread(args=(page,what), target=self.do_search)
+            time.sleep(0.5)
+            t.start()
+            threads.append(t)
+            page += 1   
+        
+        for t in threads:
+            t.join()
