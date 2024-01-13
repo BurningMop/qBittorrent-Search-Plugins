@@ -1,4 +1,4 @@
-# VERSION: 1.1
+# VERSION: 1.0
 # AUTHORS: BurningMop (burning.mop@yandex.com)
 
 # LICENSING INFORMATION
@@ -27,21 +27,21 @@ import threading
 from helpers import download_file, retrieve_url
 from novaprinter import prettyPrinter, anySizeToBytes
 
-
-class therarbg(object):
-    url = 'https://therarbg.com'
-    name = 'The RarBg'
+class torrentdownloads(object):
+    url = 'https://torrentdownloads.pro'
+    name = 'Torrent Downloads'
     supported_categories = {
-        'all':'All', 
-        'movies':'Movies', 
-        'tv': 'TV', 
-        'music':'Music', 
-        'games':'Games', 
-        'anime':'Anime', 
-        'software':'Apps'
+        'all':'0',
+        'anime':'1',
+        'books': '2',
+        'games':'3',
+        'movies':'4',
+        'music':'5',
+        'software':'7',
+        'tv': '8'
         }
     
-    next_page_regex = r'<a.*?>»<\/a>'
+    next_page_regex = r'<a.*?>>><\/a>'
     has_next_page = True
 
     class MyHtmlParser(HTMLParser):
@@ -49,7 +49,7 @@ class therarbg(object):
         def error(self, message):
             pass
     
-        DIV, TABLE, TBODY, TR, TD, A, SPAN, I, B = ('div', 'table', 'tbody', 'tr', 'td', 'a', 'span', 'i', 'b')
+        DIV, P, A, SPAN, B = ('div', 'p', 'a', 'span', 'b')
     
         def __init__(self, url):
             HTMLParser.__init__(self)
@@ -59,10 +59,10 @@ class therarbg(object):
             self.row = {}
             self.column = 0
 
-            self.foundTable = False
-            self.foundTableTbody = False
+            self.foundContainer = False
             self.insideRow = False
             self.insideCell = False
+            self.insideNameCell = False
 
             self.shouldParseName = False
             self.shouldGetCategory = False
@@ -72,30 +72,40 @@ class therarbg(object):
 
             self.alreadyParseName = False
             self.alreadyParsesLink = False
+            self.shouldSkipResult = False
 
         def handle_starttag(self, tag, attrs):
             params = dict(attrs)
             cssClasses = params.get('class', '')
             elementId = params.get('id', '')
 
-            if tag == self.TABLE:
-                self.foundTable = True
+            if 'inner_container' in cssClasses:
+                self.foundContainer = True
 
-            if tag == self.TBODY and self.foundTable:
-                self.foundTableTbody = True
-
-            if tag == self.TR and self.foundTableTbody:
-                self.column = 0
+            if 'grey_bar3' in cssClasses and tag == self.DIV:
                 self.insideRow = True
 
-            if tag == self.TD and self.insideRow:
+            if self.insideRow and tag == self.SPAN and not self.shouldSkipResult:
                 self.column += 1
                 self.insideCell = True
 
+            if self.insideRow and tag == self.P:
+                self.insideNameCell = True
+
             if self.insideCell:
-                if self.column == 2 and tag == self.A and not self.alreadyParseName :
-                    self.shouldParseName = True
-                    href = params.get('href')
+                if self.column == 2:
+                    self.shouldGetLeechs = True
+
+                if self.column == 3:
+                    self.shouldGetSeeds = True
+
+                if self.column == 4:
+                    self.shouldGetSize = True
+
+            if self.insideNameCell and tag == self.A:
+                self.shouldParseName = True
+                href = params.get('href')
+                if href.startswith("/torrent/"):
                     link = f'{self.url}/{href}'
                     self.row['desc_link'] = link
 
@@ -103,31 +113,20 @@ class therarbg(object):
                     matches = re.finditer(self.magnet_regex, torrent_page, re.MULTILINE)
                     magnet_urls = [x.group() for x in matches]
                     self.row['link'] = magnet_urls[0].split('"')[1]
-
-                if self.column == 3 and tag == self.A:
-                    self.shouldGetCategory = True                 
-
-                if self.column == 6:
-                    self.shouldGetSize = True
-
-                if self.column == 7:
-                    self.shouldGetSeeds = True
-
-                if self.column == 8:
-                    self.shouldGetLeechs = True                    
+                else:
+                    self.shouldSkipResult = True
+                    
+            if self.insideNameCell and tag == self.B:
+                self.shouldSkipResult = True
 
         def handle_data(self, data):
             if self.shouldParseName:
                 self.row['name'] = data
                 self.shouldParseName = False
-                self.alreadyParseName = True
-
-            if self.shouldGetCategory:
-                self.row['name'] += f' ({data.strip()})'
-                self.shouldGetCategory = False
 
             if self.shouldGetSize:
-                self.row['size'] = data.replace(',', '.')
+                size = data.replace('&nbsp;', '')
+                self.row['size'] = size
                 self.shouldGetSize = False
 
             if self.shouldGetSeeds:    
@@ -139,26 +138,27 @@ class therarbg(object):
                 self.shouldGetLeechs = False
 
         def handle_endtag(self, tag):
-            if tag == self.TD:
+            if tag == self.SPAN or tag == self.P:
                 self.insideCell = False
 
-            if tag == self.TR and self.foundTableTbody:
+            if tag == self.P:
+                self.insideNameCell = False
+
+            if tag == self.DIV and self.insideRow:
                 self.row['engine_url'] = self.url
-                prettyPrinter(self.row)
+                if not self.shouldSkipResult:
+                    prettyPrinter(self.row)
                 self.column = 0
                 self.row = {}
                 self.insideRow = False
-                self.alreadyParseName = False
+                self.shouldSkipResult = False
 
 
     def download_torrent(self, info):
         print(download_file(info))
 
     def getPageUrl(self, what, cat, page):
-        if not cat == 'All':
-            return f'{self.url}/get-posts/order:-se:category:{cat}:keywords:{what}/?page={page}&'
-        else:
-            return f'{self.url}/get-posts/order:-se:keywords:{what}/?page={page}&'
+        return f'{self.url}/search/?new=1&s_cat={cat}&search={what}&page={page}'
 
     def threaded_search(self, page, what, cat):
         parser = self.MyHtmlParser(self.url)
@@ -174,6 +174,8 @@ class therarbg(object):
     def search(self, what, cat = 'all'):
         page = 1
         search_category = self.supported_categories[cat]
+        what = what.replace("%20", "+")
+        what = what.replace(" ", "+")
 
         threads = []
         while self.has_next_page:
