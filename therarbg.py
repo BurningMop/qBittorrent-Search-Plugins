@@ -22,6 +22,7 @@
 
 import re
 from html.parser import HTMLParser
+import time
 import threading
 from helpers import download_file, retrieve_url
 from novaprinter import prettyPrinter, anySizeToBytes
@@ -160,6 +161,7 @@ class therarbg(object):
             return f'{self.url}/get-posts/order:-se:keywords:{what}/?page={page}&'
 
     def threaded_search(self, page, what, cat):
+        print(f"Threaded_search page: {page}")
         parser = self.MyHtmlParser(self.url)
         page_url = self.getPageUrl(what, self.supported_categories[cat], page)
         retrievedHtml = retrieve_url(page_url)
@@ -171,20 +173,16 @@ class therarbg(object):
         parser.close()            
 
     def search(self, what, cat = 'all'):
-        parser = self.MyHtmlParser(self.url)
         page = 1
 
-        page_url = self.getPageUrl(what, self.supported_categories[cat], page)
-
-        retrievedHtml = retrieve_url(page_url)
-
-        parser.feed(retrievedHtml)
-
+        threads = []
         while self.has_next_page:
             t = threading.Thread(args=(page, what, cat), target=self.threaded_search)
             t.start()
             time.sleep(0.5)
             threads.append(t)
     
-            page += 1   
-        parser.close()
+            page += 1
+
+        for t in threads:
+            t.join()
