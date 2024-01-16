@@ -1,4 +1,4 @@
-# VERSION: 1.0
+# VERSION: 1.1
 # AUTHORS: BurningMop (burning.mop@yandex.com)
 
 # LICENSING INFORMATION
@@ -22,7 +22,8 @@
 
 import re
 from html.parser import HTMLParser
-
+import time
+import threading
 from helpers import download_file, retrieve_url
 from novaprinter import prettyPrinter
 
@@ -31,9 +32,14 @@ class xxxclubto(object):
     url = 'https://xxxclub.to'
     name = 'XXXClub'
     supported_categories = {
-        'all': 'all',
+        'all': 'All',
         'pictures': '5',
     }
+
+    container_regex = r'<div.*?class=".*?browsetableinside.*?".*?>(?s:.)*?<\/div>'
+    items_regex = r'<li.*?>(?s:.)*?<\/li>'
+
+    has_results = True
 
     class MyHtmlParser(HTMLParser):
     
@@ -120,6 +126,30 @@ class xxxclubto(object):
     def download_torrent(self, info):
         print(download_file(info))
 
+    def getPageUrl(self, what, category, page):
+        return f'{self.url}/torrents/browse/{category}/{what}?page={page}'
+
+    def hasResults(self, html):
+        container_matches = re.finditer(self.container_regex, html, re.MULTILINE)
+        container = [x.group() for x in container_matches]
+
+        if len(container) > 0:
+            containerHtml = container[0]
+            items_matches = re.finditer(self.items_regex, containerHtml, re.MULTILINE)
+            items = [x.group() for x in items_matches]
+            self.has_results = len(items) > 1
+        else:
+            self.has_results = False
+
+    def threaded_search(self, page, what, cat):
+        parser = self.MyHtmlParser(self.url)
+        page_url = self.getPageUrl(what, cat, page)
+        retrievedHtml = retrieve_url(page_url)
+        self.hasResults(retrievedHtml)
+        if self.has_results:
+            parser.feed(retrievedHtml)
+            parser.close()           
+
     def search(self, what, cat='all'):
         parser = self.MyHtmlParser(self.url)
         what = what.replace('%20', '+')
@@ -127,11 +157,14 @@ class xxxclubto(object):
         category = self.supported_categories[cat]
         page = 1
 
-        while True:
-            page_url = f'{self.url}/torrents/browse/{category}/{what}?page={page}' if category else f'{self.url}/torrents/browse/all/{what}?page={page}'
-            retrievedHtml = retrieve_url(page_url)
-            parser.feed(retrievedHtml)
-            if 'title="Next Page">Next</a>' in retrievedHtml:
-                break
-            page += 1   
-        parser.close()
+        threads = []
+        while self.has_results:
+            t = threading.Thread(args=(page, what, category), target=self.threaded_search)
+            t.start()
+            time.sleep(0.5)
+            threads.append(t)
+    
+            page += 1
+
+        for t in threads:
+            t.join()
