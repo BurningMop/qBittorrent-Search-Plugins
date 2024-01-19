@@ -1,4 +1,4 @@
-# VERSION: 1.1
+# VERSION: 1.2
 # AUTHORS: BurningMop (burning.mop@yandex.com)
 
 # LICENSING INFORMATION
@@ -24,12 +24,50 @@ import re
 from html.parser import HTMLParser
 import time
 import threading
-from helpers import download_file, retrieve_url
+import urllib.error
+import urllib.parse
+import urllib.request
+from helpers import download_file, htmlentitydecode
 from novaprinter import prettyPrinter
 
+headers = {
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0',
+    'Referer': 'https://xxxclub.to'
+}
+
+def retrieve_url(url, customHeaders=headers):
+    """ Return the content of the url page as a string """
+    req = urllib.request.Request(url, headers=customHeaders)
+    try:
+        response = urllib.request.urlopen(req)
+    except urllib.error.URLError as errno:
+        print(" ".join(("Connection error:", str(errno.reason))))
+        return ""
+    dat = response.read()
+    # Check if it is gzipped
+    if dat[:2] == b'\x1f\x8b':
+        # Data is gzip encoded, decode it
+        compressedstream = io.BytesIO(dat)
+        gzipper = gzip.GzipFile(fileobj=compressedstream)
+        extracted_data = gzipper.read()
+        dat = extracted_data
+    info = response.info()
+    charset = 'utf-8'
+    try:
+        ignore, charset = info['Content-Type'].split('charset=')
+    except Exception:
+        pass
+    dat = dat.decode(charset, 'replace')
+    dat = htmlentitydecode(dat)
+    # return dat.encode('utf-8', 'replace')
+    return dat
 
 class xxxclubto(object):
     url = 'https://xxxclub.to'
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0',
+        'Referer': url
+    }    
     name = 'XXXClub'
     supported_categories = {
         'all': 'All',
@@ -48,9 +86,11 @@ class xxxclubto(object):
     
         UL, LI, SPAN, A = ('ul', 'li', 'span', 'a')
     
-        def __init__(self, url):
+        def __init__(self, url, headers):
             HTMLParser.__init__(self)
             self.url = url
+            self.headers = headers
+            self.headers['Referer'] = url
             self.row = {}
             self.column = 0
             self.foundResults = False
@@ -87,7 +127,7 @@ class xxxclubto(object):
                 link = f'{self.url}{href}'
                 self.row['desc_link'] = link
                 self.row['link'] = link
-                torrent_page = retrieve_url(link)
+                torrent_page = retrieve_url(link, self.headers)
                 matches = re.finditer(self.magnet_regex, torrent_page, re.MULTILINE)
                 magnet_urls = [x.group() for x in matches]
                 self.row['link'] = magnet_urls[0].split('"')[1]
@@ -142,16 +182,17 @@ class xxxclubto(object):
             self.has_results = False
 
     def threaded_search(self, page, what, cat):
-        parser = self.MyHtmlParser(self.url)
         page_url = self.getPageUrl(what, cat, page)
-        retrievedHtml = retrieve_url(page_url)
+        self.headers['Referer'] = page_url
+        retrievedHtml = retrieve_url(page_url, self.headers)
         self.hasResults(retrievedHtml)
+        parser = self.MyHtmlParser(self.url, self.headers)
         if self.has_results:
             parser.feed(retrievedHtml)
             parser.close()           
 
     def search(self, what, cat='all'):
-        parser = self.MyHtmlParser(self.url)
+        parser = self.MyHtmlParser(self.url, self.headers)
         what = what.replace('%20', '+')
         what = what.replace(' ', '+')
         category = self.supported_categories[cat]
