@@ -1,4 +1,4 @@
-# VERSION: 1.1
+# VERSION: 1.2
 # AUTHORS: BurningMop (burning.mop@yandex.com)
 
 # LICENSING INFORMATION
@@ -42,6 +42,7 @@ class therarbg(object):
         }
     
     next_page_regex = r'<a.*?>»<\/a>'
+    title_regex = r'<title>Search for.*<\/title>'
     has_next_page = True
 
     class MyHtmlParser(HTMLParser):
@@ -156,20 +157,23 @@ class therarbg(object):
 
     def getPageUrl(self, what, cat, page):
         if not cat == 'All':
-            return f'{self.url}/get-posts/order:-se:category:{cat}:keywords:{what}/?page={page}&'
+            return f'{self.url}/get-posts/order:-se:category:{cat}:keywords:{what}/?page={page}'
         else:
-            return f'{self.url}/get-posts/order:-se:keywords:{what}/?page={page}&'
+            return f'{self.url}/get-posts/order:-se:keywords:{what}/?page={page}'
 
     def threaded_search(self, page, what, cat):
-        parser = self.MyHtmlParser(self.url)
         page_url = self.getPageUrl(what, cat, page)
         retrievedHtml = retrieve_url(page_url)
         next_page_matches = re.finditer(self.next_page_regex, retrievedHtml, re.MULTILINE)
+        title_matches = re.finditer(self.title_regex, retrievedHtml, re.MULTILINE)
+        is_result_page = [x.group() for x in title_matches]
         next_page = [x.group() for x in next_page_matches]
         if len(next_page) == 0:
             self.has_next_page = False
-        parser.feed(retrievedHtml)
-        parser.close()            
+        if is_result_page:
+            parser = self.MyHtmlParser(self.url)
+            parser.feed(retrievedHtml)
+            parser.close()
 
     def search(self, what, cat = 'all'):
         page = 1
