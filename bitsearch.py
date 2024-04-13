@@ -1,4 +1,4 @@
-# VERSION: 1.0
+# VERSION: 1.1
 # AUTHORS: BurningMop (burning.mop@yandex.com)
 
 # LICENSING INFORMATION
@@ -60,49 +60,51 @@ class bitsearch(object):
             self.insideStatsDiv = False
             self.insideStatsColumn = False
             self.insideLinksDiv = False
+            self.isValidInfo = False
     
         def handle_starttag(self, tag, attrs):
             params = dict(attrs)
             cssClasses = params.get('class', '')
-            elementId = params.get('id', '')
 
             if tag == self.LI and 'search-result' in cssClasses:
                 self.insideSearchResult = True
                 return
 
-            if self.insideSearchResult and tag == self.DIV and 'info' in cssClasses:
+            if self.insideSearchResult and tag == self.DIV and self.is_search_result(cssClasses):
                 self.insideInfoDiv = True
+                self.isValidInfo = True
                 return
 
-            if self.insideInfoDiv and tag == self.H5:
-                self.insideName = True
-                return
+            if self.isValidInfo:
+                if self.insideInfoDiv and tag == self.H5:
+                    self.insideName = True
+                    return
 
-            if self.insideName and tag == self.A:
-                self.shouldGetName = True
-                href = params.get('href')
-                link = f'{self.url}{href}'
-                self.row['desc_link'] = link
-                return
+                if self.insideName and tag == self.A:
+                    self.shouldGetName = True
+                    href = params.get('href')
+                    link = f'{self.url}{href}'
+                    self.row['desc_link'] = link
+                    return
 
-            if self.insideSearchResult and tag == self.DIV and 'stats' in cssClasses:
-                self.insideStatsDiv = True
-                return
+                if self.insideSearchResult and tag == self.DIV and 'stats' in cssClasses:
+                    self.insideStatsDiv = True
+                    return
 
-            if self.insideStatsDiv and tag == self.DIV:
-                self.insideStatsColumn = True
-                self.column += 1
-                return
+                if self.insideStatsDiv and tag == self.DIV:
+                    self.insideStatsColumn = True
+                    self.column += 1
+                    return
 
-            if self.insideSearchResult and tag == self.DIV and 'links' in cssClasses:
-                self.insideLinksDiv = True
-                return
+                if self.insideSearchResult and tag == self.DIV and 'links' in cssClasses:
+                    self.insideLinksDiv = True
+                    return
 
-            if self.insideLinksDiv and tag == self.A and 'dl-magnet' in cssClasses:
-                href = params.get('href')
-                self.row['link'] = href
-                self.insideLinksDiv = False
-                return                
+                if self.insideLinksDiv and tag == self.A and 'dl-magnet' in cssClasses:
+                    href = params.get('href')
+                    self.row['link'] = href
+                    self.insideLinksDiv = False
+                    return
 
         def handle_data(self, data):
             if self.shouldGetName:
@@ -136,11 +138,14 @@ class bitsearch(object):
 
             if tag == self.LI and self.insideSearchResult:
                 self.row['engine_url'] = self.url
-                print(self.row)
-                prettyPrinter(self.row)
+                if self.isValidInfo:
+                    prettyPrinter(self.row)
                 self.insideSearchResult = False
                 self.column = 0
                 return
+
+        def is_search_result(self, classes):
+            return 'info' in classes and 'px-3' in classes
 
     def download_torrent(self, info):
         print(download_file(info))
