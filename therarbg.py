@@ -128,7 +128,7 @@ class therarbg(object):
                 self.shouldGetCategory = False
 
             if self.shouldGetSize:
-                self.row['size'] = data.replace(',', '.')
+                self.row['size'] = data.replace(',', '.').replace('\xa0', ' ')
                 self.shouldGetSize = False
 
             if self.shouldGetSeeds:    

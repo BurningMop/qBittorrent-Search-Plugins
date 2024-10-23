@@ -77,7 +77,6 @@ class torrentdownloads(object):
         def handle_starttag(self, tag, attrs):
             params = dict(attrs)
             cssClasses = params.get('class', '')
-            elementId = params.get('id', '')
 
             if 'inner_container' in cssClasses:
                 self.foundContainer = True
@@ -125,7 +124,7 @@ class torrentdownloads(object):
                 self.shouldParseName = False
 
             if self.shouldGetSize:
-                size = data.replace('&nbsp;', '')
+                size = data.replace('&nbsp;', '').replace('\xa0', ' ')
                 self.row['size'] = size
                 self.shouldGetSize = False
 
