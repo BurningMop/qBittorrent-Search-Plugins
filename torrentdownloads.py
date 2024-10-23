@@ -1,4 +1,4 @@
-# VERSION: 1.0
+# VERSION: 1.1
 # AUTHORS: BurningMop (burning.mop@yandex.com)
 
 # LICENSING INFORMATION
