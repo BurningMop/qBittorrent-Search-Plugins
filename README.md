@@ -75,6 +75,13 @@ For any doubts about the installation process, please refer to the official wiki
 * [![TomaDivx](https://www.google.com/s2/favicons?domain=tomadivx.net#.png) TomaDivx](https://tomadivx.net/)
 * [![Mac Torrents](https://www.google.com/s2/favicons?domain=torrentmac.net#.png) Mac Torrents](https://torrentmac.net/)
 * [![BTDigg](https://www.google.com/s2/favicons?domain=btdig.com#.png) BTDigg](https://btdig.com/)
+* [![pelitorrent](https://www.google.com/s2/favicons?domain=pelitorrent.com#.png) pelitorrent](https://pelitorrent.com/)
+* [![dontorrent](https://www.google.com/s2/favicons?domain=dontorrent.equipment#.png) dontorrent](https://dontorrent.equipment/)
+* [![esmeraldatorrent](https://www.google.com/s2/favicons?domain=esmeraldatorrent.com#.png) esmeraldatorrent](https://esmeraldatorrent.com/)
+* [![naranjatorrent](https://www.google.com/s2/favicons?domain=naranjatorrent.com#.png) naranjatorrent](https://naranjatorrent.com/)
+* [![divxtotal](https://www.google.com/s2/favicons?domain=divxtotal.wtf#.png) divxtotal](https://divxtotal.wtf/)
+* [![calidadtorrent](https://www.google.com/s2/favicons?domain=calidadtorrent.com#.png) calidadtorrent](https://calidadtorrent.com/)
+* [![pediatorrent](https://www.google.com/s2/favicons?domain=pediatorrent.com#.png) pediatorrent](https://pediatorrent.com/)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
