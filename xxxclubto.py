@@ -1,4 +1,4 @@
-# VERSION: 1.2
+# VERSION: 1.3
 # AUTHORS: BurningMop (burning.mop@yandex.com)
 
 # LICENSING INFORMATION
@@ -24,48 +24,12 @@ import re
 from html.parser import HTMLParser
 import time
 import threading
-import urllib.error
-import urllib.parse
-import urllib.request
-from helpers import download_file, htmlentitydecode
+from helpers import download_file, retrieve_url
 from novaprinter import prettyPrinter
-
-headers = {
-    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0',
-    'Referer': 'https://xxxclub.to'
-}
-
-def retrieve_url(url, customHeaders=headers):
-    """ Return the content of the url page as a string """
-    req = urllib.request.Request(url, headers=customHeaders)
-    try:
-        response = urllib.request.urlopen(req)
-    except urllib.error.URLError as errno:
-        print(" ".join(("Connection error:", str(errno.reason))))
-        return ""
-    dat = response.read()
-    # Check if it is gzipped
-    if dat[:2] == b'\x1f\x8b':
-        # Data is gzip encoded, decode it
-        compressedstream = io.BytesIO(dat)
-        gzipper = gzip.GzipFile(fileobj=compressedstream)
-        extracted_data = gzipper.read()
-        dat = extracted_data
-    info = response.info()
-    charset = 'utf-8'
-    try:
-        ignore, charset = info['Content-Type'].split('charset=')
-    except Exception:
-        pass
-    dat = dat.decode(charset, 'replace')
-    dat = htmlentitydecode(dat)
-    # return dat.encode('utf-8', 'replace')
-    return dat
 
 class xxxclubto(object):
     url = 'https://xxxclub.to'
     headers = {
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0',
         'Referer': url
     }    
     name = 'XXXClub'
@@ -75,9 +39,14 @@ class xxxclubto(object):
     }
 
     container_regex = r'<div.*?class=".*?browsetableinside.*?".*?>(?s:.)*?<\/div>'
+    pagination_regex = r'<div.*?class=".*?browsepagination.*?".*?>(?s:.)*?<\/div>'
+    pagination_next_regex = r'<a.*?title="Next Page".*?>(?s:.)*?<\/a>'
+    pagination_last_page = r'<a.*?class=".*?active.*?".*?>.*?</a>'
     items_regex = r'<li.*?>(?s:.)*?<\/li>'
 
     has_results = True
+    has_next_page = True
+    last_page = 100
 
     class MyHtmlParser(HTMLParser):
     
@@ -166,45 +135,59 @@ class xxxclubto(object):
     def download_torrent(self, info):
         print(download_file(info))
 
-    def getPageUrl(self, what, category, page):
-        return f'{self.url}/torrents/browse/{category}/{what}?page={page}'
-
-    def hasResults(self, html):
+    def get_page_url(self, what, category, page):
+        return f'{self.url}/torrents/search/{category}/{what}?page={page}&sort=seeders&order=asc'
+    def get_results(self, html):
         container_matches = re.finditer(self.container_regex, html, re.MULTILINE)
         container = [x.group() for x in container_matches]
 
         if len(container) > 0:
-            containerHtml = container[0]
-            items_matches = re.finditer(self.items_regex, containerHtml, re.MULTILINE)
+            container_html = container[0]
+            items_matches = re.finditer(self.items_regex, container_html, re.MULTILINE)
             items = [x.group() for x in items_matches]
             self.has_results = len(items) > 1
         else:
             self.has_results = False
 
+    def get_next_page(self, html):
+        next_page_matches = re.finditer(self.pagination_next_regex, html, re.MULTILINE)
+        next_page = [x.group() for x in next_page_matches]
+
+        if len(next_page) == 0:
+            self.has_next_page = False
+            self.get_last_page(html)
+
+    def get_last_page(self, html):
+        last_page_matches = re.finditer(self.pagination_last_page, html, re.MULTILINE)
+        last_page = [x.group() for x in last_page_matches]
+
+        if len(last_page) == 0:
+            self.last_page = 1
+        else:
+            self.last_page = int(re.sub(r'</a>', '',re.sub(r'<a.*?>', '', last_page[0])))
+
     def threaded_search(self, page, what, cat):
-        page_url = self.getPageUrl(what, cat, page)
+        page_url = self.get_page_url(what, cat, page)
         self.headers['Referer'] = page_url
-        retrievedHtml = retrieve_url(page_url, self.headers)
-        self.hasResults(retrievedHtml)
+        retrieved_html = retrieve_url(page_url, self.headers)
+        self.get_results(retrieved_html)
+        self.get_next_page(retrieved_html)
         parser = self.MyHtmlParser(self.url, self.headers)
-        if self.has_results:
-            parser.feed(retrievedHtml)
+        if self.has_results and page <= self.last_page:
+            parser.feed(retrieved_html)
             parser.close()           
 
     def search(self, what, cat='all'):
-        parser = self.MyHtmlParser(self.url, self.headers)
-        what = what.replace('%20', '+')
-        what = what.replace(' ', '+')
         category = self.supported_categories[cat]
         page = 1
 
         threads = []
-        while self.has_results:
+        while self.has_results and self.has_next_page:
             t = threading.Thread(args=(page, what, category), target=self.threaded_search)
             t.start()
             time.sleep(0.5)
             threads.append(t)
-    
+
             page += 1
 
         for t in threads:

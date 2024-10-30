@@ -68,7 +68,7 @@ For any doubts about the installation process, please refer to the official wiki
 | [![SolidTorrents.to](https://www.google.com/s2/favicons?domain=solidtorrents.to#.png) SolidTorrents.to](https://solidtorrents.to/)                   | 1.0     | 05/Jan/2024 | [Download](https://raw.githubusercontent.com/BurningMop/qBittorrent-Search-Plugins/main/solidtorrents.py)     | qbt 4.6.x / python 3.9.x |
 | [![Torrent Downloads Pro](https://www.google.com/s2/favicons?domain=torrentdownloads.pro#.png) Torrent Downloads Pro](https://torrentdownloads.pro/) | 1.1     | 20/Oct/2024 | [Download](https://raw.githubusercontent.com/BurningMop/qBittorrent-Search-Plugins/main/torrentdownloads.py)  | qbt 4.6.x / python 3.9.x |
 | [![TrahT](https://www.google.com/s2/favicons?domain=traht.org#.png) TrahT](https://traht.org/)                                                       | 1.0     | 27/Dec/2023 | [Download](https://raw.githubusercontent.com/BurningMop/qBittorrent-Search-Plugins/main/traht.py)             | qbt 4.6.x / python 3.9.x |
-| [![XXXClub](https://www.google.com/s2/favicons?domain=xxxclub.to#.png) XXXClub](https://xxxclub.to/)                                                 | 1.0     | 26/Dec/2023 | [Download](https://raw.githubusercontent.com/BurningMop/qBittorrent-Search-Plugins/main/xxxclubto.py)         | qbt 4.6.x / python 3.9.x |
+| [![XXXClub](https://www.google.com/s2/favicons?domain=xxxclub.to#.png) XXXClub](https://xxxclub.to/)                                                 | 1.3     | 29/Oct/2024 | [Download](https://raw.githubusercontent.com/BurningMop/qBittorrent-Search-Plugins/main/xxxclubto.py)         | qbt 5.0.x / python 3.9.x |
 
  And I'm currently working on these plugins.
 
