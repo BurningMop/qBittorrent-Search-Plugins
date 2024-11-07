@@ -1,4 +1,4 @@
-# VERSION: 1.1
+# VERSION: 1.0
 # AUTHORS: BurningMop (burning.mop@yandex.com)
 
 # LICENSING INFORMATION
@@ -31,12 +31,12 @@ from helpers import download_file, retrieve_url
 from novaprinter import prettyPrinter, anySizeToBytes
 
 
-class tomadivx(object):
-    url = 'https://tomadivx.net/'
+class naranjatorrent(object):
+    url = 'https://naranjatorrent.com/'
     headers = {
         'Referer': url
     }
-    name = 'TomaDivx'
+    name = 'NaranjaTorrent'
     supported_categories = {
         'all': 'all'
     }
