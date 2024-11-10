@@ -1,4 +1,4 @@
-# VERSION: 1.02
+# VERSION: 1.03
 # AUTHORS: BurningMop (burning.mop@yandex.com)
 
 # LICENSING INFORMATION
@@ -213,6 +213,7 @@ class mypornclub(object):
 
                 if self.web_seed:
                     self.row["name"] = "💥 " + self.row["name"]
+                    self.web_seed = False
 
                 prettyPrinter(self.row)
                 self.row = {}
