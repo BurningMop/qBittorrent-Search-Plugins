@@ -23,8 +23,10 @@
 import re
 import json
 import time
+import base64
 import threading
 import urllib.request
+import urllib.parse
 from html.parser import HTMLParser
 
 from helpers import download_file, retrieve_url
@@ -62,34 +64,44 @@ class mypornclub(object):
             self.shouldAddBrackets = False
             self.shouldAddName = False
             self.web_seed = False
+            self.shouldGetDate = False
             self.magnet_regex = r'href=["\']magnet:.+?["\']'
             self.has_web_regex = (
-                r"(//sxyprn.com/post/[\da-f]*\.html)[^>]*[>]\[[lL][iI][Nn][Kk][Ss]\s*\+"
+                r"(sxyprn\.com[^\w]*?post[^\w]*?[\w]*?\.html)"
             )
+
+        def preda(self, arg):
+            arg[5] = int(arg[5])
+            arg[5] -= int(self.ssut51(arg[6])) + int(self.ssut51(arg[7]))
+            arg[5] = str(arg[5])
+            return arg
+
+        def ssut51(self, arg):
+            str_num = ''.join(filter(str.isdigit, arg))
+            sut = 0
+            for char in str_num:
+                sut += int(char)
+            return sut
+
+        def boo(self, ss, es):
+            b = base64.b64encode((ss + "-" + "sxyprn.com" + "-" + es).encode()).decode()
+            return b.replace('+', '-').replace('/', '_').replace('=', '.')
 
         def check_for_web_seed(self, web_page_url):
             id = web_page_url.split("/")[-1].split(".")[0]
+            web_page_url = re.sub(r'\\', r'', web_page_url)
             page = retrieve_url(web_page_url)
             match = re.search(r'data-vnfo=(["\'])(?P<data>{.+?})\1', page)
             if match:
                 num = 0
                 data1 = json.loads(match.group("data"))
                 parts = data1[id].split("/")
-                for c in parts[6] + parts[7]:
-                    if c.isnumeric():
-                        num += int(c)
+                parts[1] += "8" + "/" + self.boo(str(self.ssut51(parts[6])), str(self.ssut51(parts[7])))
+                parts = self.preda(parts)
+                final_url = 'https://sxyprn.com' + "/".join(parts)
 
-                parts[5] = str(int(parts[5]) - num)
-                parts[1] += "8"
-                first_url = "https://sxyprn.com" + "/".join(parts)
-                final_url = first_url
-                user_agent = "Mozilla/5.0 (Windows NT 6.1; Win64; x64)"
-                headers = {"User-Agent": user_agent}
-                req = urllib.request.Request(url=first_url, headers=headers)
-                with urllib.request.urlopen(req) as rf:
-                    final_url = rf.url
-
-                return "&ws=" + final_url
+                return "&ws=" + final_url + "&ws=" + urllib.request.urlopen(final_url).geturl() 
+                       
             else:
                 return None
 
@@ -136,6 +148,9 @@ class mypornclub(object):
             if self.insideTorrentName and tag == self.I:
                 self.shouldAddBrackets = False
                 self.shouldAddName = False
+            
+            if self.insideMetaData and 'linkadd' in cssClasses and tag == self.A:
+                    self.shouldGetDate = True
 
             if (
                 self.insideTorrentData
@@ -151,7 +166,7 @@ class mypornclub(object):
                 self.row["link"] = magnet_urls[0].replace("'", '"').split('"')[1]
 
                 _has_page = re.finditer(self.has_web_regex, torrent_page, re.MULTILINE)
-                has_page = ["https:" + x.group(1) for x in _has_page]
+                has_page = ["https://" + x.group(1) for x in _has_page]
                 if has_page:
                     self.web_seed = self.check_for_web_seed(has_page[0])
                     if self.web_seed:
@@ -163,6 +178,24 @@ class mypornclub(object):
                 self.insideLabelCell = True
 
         def handle_data(self, data):
+
+            if self.shouldGetDate:
+                self.shouldGetDate = False
+                from datetime import datetime, timezone
+                if len(data.split(' ')) == 3 and data.split(' ')[2] == 'ago':
+                    if data.split(' ')[1] == 'minutes':
+                        self.row['pub_date'] = int(datetime.now().timestamp() - (int(data.split(' ')[0]) * 60))
+                    if data.split(' ')[1] == 'hours':
+                        self.row['pub_date'] = int(datetime.now().timestamp() - (int(data.split(' ')[0]) * 60 * 60))
+                    if data.split(' ')[1] == 'days':
+                        self.row['pub_date'] = int(datetime.now().timestamp() - (int(data.split(' ')[0]) * 60 * 60 * 24))
+                    if data.split(' ')[1] == 'months':
+                        self.row['pub_date'] = int(datetime.now().timestamp() - (int(data.split(' ')[0]) * 60 * 60 * 24 * 30))
+                    if data.split(' ')[1] == 'years':
+                        self.row['pub_date'] = int(datetime.now().timestamp() - (int(data.split(' ')[0]) * 60 * 60 * 24 * 365))
+                    
+                    
+
             if self.insideRow:
                 if self.insideTorrentData and self.insideTorrentName:
                     if self.shouldAddBrackets:
@@ -197,6 +230,8 @@ class mypornclub(object):
                             self.insideSeedCell = True
                         if data == "[leechers]:":
                             self.insideLeechCell = True
+
+                
 
         def handle_endtag(self, tag):
             if self.insideRow and tag == self.DIV:
