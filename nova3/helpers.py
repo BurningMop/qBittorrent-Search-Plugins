@@ -1,4 +1,4 @@
-#VERSION: 1.47
+#VERSION: 1.51
 
 # Author:
 #  Christophe DUMEZ (chris@qbittorrent.org)
@@ -29,18 +29,19 @@
 
 import datetime
 import gzip
-import html.entities
+import html
 import io
 import os
 import re
 import socket
 import socks
+import ssl
+import sys
 import tempfile
 import urllib.error
-import urllib.parse
 import urllib.request
 from collections.abc import Mapping
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 
 def getBrowserUserAgent() -> str:
@@ -59,7 +60,7 @@ def getBrowserUserAgent() -> str:
     return f"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:{nowVersion}.0) Gecko/20100101 Firefox/{nowVersion}.0"
 
 
-headers: Dict[str, Any] = {'User-Agent': getBrowserUserAgent()}
+headers: dict[str, Any] = {'User-Agent': getBrowserUserAgent()}
 
 # SOCKS5 Proxy support
 if "sock_proxy" in os.environ and len(os.environ["sock_proxy"].strip()) > 0:
@@ -72,71 +73,61 @@ if "sock_proxy" in os.environ and len(os.environ["sock_proxy"].strip()) > 0:
         socket.socket = socks.socksocket  # type: ignore[misc]
 
 
-def htmlentitydecode(s: str) -> str:
-    # First convert alpha entities (such as &eacute;)
-    # (Inspired from http://mail.python.org/pipermail/python-list/2007-June/443813.html)
-    def entity2char(m: re.Match[str]) -> str:
-        entity = m.group(1)
-        if entity in html.entities.name2codepoint:
-            return chr(html.entities.name2codepoint[entity])
-        return " "  # Unknown entity: We replace with a space.
-    t = re.sub('&(%s);' % '|'.join(html.entities.name2codepoint), entity2char, s)
-
-    # Then convert numerical entities (such as &#233;)
-    t = re.sub(r'&#(\d+);', lambda x: chr(int(x.group(1))), t)
-
-    # Then convert hexa entities (such as &#x00E9;)
-    return re.sub(r'&#x(\w+);', lambda x: chr(int(x.group(1), 16)), t)
+# This is only provided for backward compatibility, new code should not use it
+htmlentitydecode = html.unescape
 
 
-def retrieve_url(url: str, custom_headers: Mapping[str, Any] = {}) -> str:
+def retrieve_url(url: str, custom_headers: Mapping[str, Any] = {}, request_data: Optional[Any] = None, ssl_context: Optional[ssl.SSLContext] = None, unescape_html_entities: bool = True) -> str:
     """ Return the content of the url page as a string """
-    print(f'fetching {url}')
-    req = urllib.request.Request(url, headers={**headers, **custom_headers})
+    print(f'retrieving {url}')
+    request = urllib.request.Request(url, request_data, {**headers, **custom_headers})
     try:
-        response = urllib.request.urlopen(req)
+        response = urllib.request.urlopen(request, context=ssl_context)
     except urllib.error.URLError as errno:
-        print(" ".join(("Connection error:", str(errno.reason))))
+        print(f"Connection error: {errno.reason}", file=sys.stderr)
         return ""
-    dat: bytes = response.read()
+    data: bytes = response.read()
+
     # Check if it is gzipped
-    if dat[:2] == b'\x1f\x8b':
+    if data[:2] == b'\x1f\x8b':
         # Data is gzip encoded, decode it
-        compressedstream = io.BytesIO(dat)
-        gzipper = gzip.GzipFile(fileobj=compressedstream)
-        extracted_data = gzipper.read()
-        dat = extracted_data
-    info = response.info()
+        with io.BytesIO(data) as compressedStream, gzip.GzipFile(fileobj=compressedStream) as gzipper:
+            data = gzipper.read()
+
     charset = 'utf-8'
     try:
-        ignore, charset = info['Content-Type'].split('charset=')
-    except Exception:
+        charset = response.getheader('Content-Type', '').split('charset=', 1)[1]
+    except IndexError:
         pass
-    datStr = dat.decode(charset, 'replace')
-    datStr = htmlentitydecode(datStr)
-    return datStr
+
+    dataStr = data.decode(charset, 'replace')
+
+    if unescape_html_entities:
+        dataStr = html.unescape(dataStr)
+
+    return dataStr
 
 
-def download_file(url: str, referer: Optional[str] = None) -> str:
+def download_file(url: str, referer: Optional[str] = None, ssl_context: Optional[ssl.SSLContext] = None) -> str:
     """ Download file at url and write it to a file, return the path to the file and the url """
-    fileHandle, path = tempfile.mkstemp()
-    file = os.fdopen(fileHandle, "wb")
+
     # Download url
-    req = urllib.request.Request(url, headers=headers)
+    request = urllib.request.Request(url, headers=headers)
     if referer is not None:
-        req.add_header('referer', referer)
-    response = urllib.request.urlopen(req)
-    dat = response.read()
+        request.add_header('referer', referer)
+    response = urllib.request.urlopen(request, context=ssl_context)
+    data = response.read()
+
     # Check if it is gzipped
-    if dat[:2] == b'\x1f\x8b':
+    if data[:2] == b'\x1f\x8b':
         # Data is gzip encoded, decode it
-        compressedstream = io.BytesIO(dat)
-        gzipper = gzip.GzipFile(fileobj=compressedstream)
-        extracted_data = gzipper.read()
-        dat = extracted_data
+        with io.BytesIO(data) as compressedStream, gzip.GzipFile(fileobj=compressedStream) as gzipper:
+            data = gzipper.read()
 
     # Write it to a file
-    file.write(dat)
-    file.close()
+    fileHandle, path = tempfile.mkstemp()
+    with os.fdopen(fileHandle, "wb") as file:
+        file.write(data)
+
     # return file path
-    return (path + " " + url)
+    return f"{path} {url}"
