@@ -1,6 +1,6 @@
-# VERSION: 1.0
+# VERSION: 1.1
 # AUTHORS: BurningMop (burning.mop@yandex.com)
-
+import json
 # LICENSING INFORMATION
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,9 +30,8 @@ import threading
 from helpers import download_file, retrieve_url
 from novaprinter import prettyPrinter, anySizeToBytes
 
-
 class dontorrent(object):
-    url = 'https://dontorrent.gallery/'
+    url = 'https://dontorrent.phd'
     headers = {
         'Referer': url
     }
@@ -178,20 +177,25 @@ class dontorrent(object):
     def download_torrent(self, info):
         print(download_file(info))
 
-    def get_page_url(self, what, page):
-        return f'{self.url}/buscar/{what}/page/{page}'
+    def get_page_url(self):
+        return f'{self.url}/buscar'
+
+    def get_page_data(self, what, page):
+        return f'valor={what}&Buscar=Buscar&p={page}'.encode()
+
 
     def threaded_search(self, page, what):
-        page_url = self.get_page_url(what, page)
+        page_url = self.get_page_url()
         self.headers['Referer'] = page_url
-        retrieved_html = retrieve_url(page_url, self.headers)
+        retrieved_html = retrieve_url(page_url, self.headers, self.get_page_data(what, page))
         parser = self.MyHtmlParser(self.url)
         parser.feed(retrieved_html)
         parser.close()
 
     def search(self, what, cat='all'):
+        self.headers['Referer'] = self.get_page_url()
         page = 1
-        retrieved_html = retrieve_url(self.get_page_url(what, page), self.headers)
+        retrieved_html = retrieve_url(self.get_page_url(), self.headers, self.get_page_data(what, page))
         matches = re.finditer(self.results_regex, retrieved_html, re.MULTILINE)
         results_el = [x.group() for x in matches]
         root = ET.fromstring(results_el[0])

@@ -42,7 +42,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Mapping
 from typing import Any, Optional
-
+import http.client
 
 def getBrowserUserAgent() -> str:
     """ Disguise as browser to circumvent website blocking """
@@ -80,6 +80,7 @@ htmlentitydecode = html.unescape
 def retrieve_url(url: str, custom_headers: Mapping[str, Any] = {}, request_data: Optional[Any] = None, ssl_context: Optional[ssl.SSLContext] = None, unescape_html_entities: bool = True) -> str:
     """ Return the content of the url page as a string """
     print(f'retrieving {url}')
+    # http.client.HTTPConnection.debuglevel = 1
     request = urllib.request.Request(url, request_data, {**headers, **custom_headers})
     try:
         response = urllib.request.urlopen(request, context=ssl_context)
