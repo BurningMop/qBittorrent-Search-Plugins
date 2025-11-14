@@ -1,4 +1,4 @@
-# VERSION: 1.1
+# VERSION: 1.2
 # AUTHORS: BurningMop (burning.mop@yandex.com)
 import json
 # LICENSING INFORMATION
@@ -198,25 +198,26 @@ class dontorrent(object):
         retrieved_html = retrieve_url(self.get_page_url(), self.headers, self.get_page_data(what, page))
         matches = re.finditer(self.results_regex, retrieved_html, re.MULTILINE)
         results_el = [x.group() for x in matches]
-        root = ET.fromstring(results_el[0])
-        results = root[0].text
-        pages = math.ceil(int(results) / 10)
+        if len(results_el) > 0:
+            root = ET.fromstring(results_el[0])
+            results = root[0].text
+            pages = math.ceil(int(results) / 10)
 
-        parser = self.MyHtmlParser(self.url)
-        parser.feed(retrieved_html)
-        parser.close()
-
-        page += 1
-
-        threads = []
-        while page <= pages:
-            t = threading.Thread(args=(page, what), target=self.threaded_search)
-            t.start()
-            time.sleep(0.5)
-            threads.append(t)
+            parser = self.MyHtmlParser(self.url)
+            parser.feed(retrieved_html)
+            parser.close()
 
             page += 1
 
-        for t in threads:
-            t.join()
+            threads = []
+            while page <= pages:
+                t = threading.Thread(args=(page, what), target=self.threaded_search)
+                t.start()
+                time.sleep(0.5)
+                threads.append(t)
+
+                page += 1
+
+            for t in threads:
+                t.join()
 
