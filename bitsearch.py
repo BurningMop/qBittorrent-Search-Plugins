@@ -1,4 +1,4 @@
-# VERSION: 1.2
+# VERSION: 1.3
 # AUTHORS: BurningMop (burning.mop@yandex.com)
 
 # LICENSING INFORMATION
@@ -23,6 +23,7 @@
 import math
 import re
 import time
+from datetime import datetime
 from html.parser import HTMLParser
 
 from helpers import download_file, retrieve_url
@@ -166,7 +167,7 @@ class bitsearch(object):
                     self.shouldGetData = False
                     return
                 if self.column == 3:
-                    self.row['pub_date'] = data.strip()
+                    self.row['pub_date'] = int(datetime.strptime(data.strip(), "%m/%d/%Y").timestamp())
                     self.shouldGetData = False
                     return
 
