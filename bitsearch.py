@@ -1,33 +1,18 @@
-# VERSION: 1.3
+# VERSION: 1.3_FIXED
 # AUTHORS: BurningMop (burning.mop@yandex.com)
-
-# LICENSING INFORMATION
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
 
 import math
 import re
 import time
+import socket
 from datetime import datetime
 from html.parser import HTMLParser
 
+# enforce a strict 15 second timout throughout.
+socket.setdefaulttimeout(15)
+
 from helpers import download_file, retrieve_url
-from novaprinter import prettyPrinter, anySizeToBytes
+from novaprinter import prettyPrinter
 
 class bitsearch(object):
     url = 'https://bitsearch.to'
@@ -94,6 +79,7 @@ class bitsearch(object):
 
             if self.insideSearchResultList and tag == self.DIV and self.search_results_item_container_class_name in cssClasses:
                 self.insideSearchResultItemContainer = True
+                self.row = {}  # clear memory/data upon entering
                 return
 
             if self.insideSearchResultItemContainer and tag == self.DIV and self.search_results_item_class_name in cssClasses:
@@ -110,14 +96,12 @@ class bitsearch(object):
                     self.metadata = 1
                     return
                 if self.metadata == 1:
-                    # stats
                     self.insideName = False
                     self.insideStats = True
                     self.column = 0
                     self.metadata = 2
                     return
                 if self.metadata == 2:
-                    # swarm
                     self.insideStats = False
                     self.insideSwarm = True
                     self.column = 0
@@ -167,7 +151,10 @@ class bitsearch(object):
                     self.shouldGetData = False
                     return
                 if self.column == 3:
-                    self.row['pub_date'] = int(datetime.strptime(data.strip(), "%m/%d/%Y").timestamp())
+                    try:
+                        self.row['pub_date'] = int(datetime.strptime(data.strip(), "%m/%d/%Y").timestamp())
+                    except:
+                        self.row['pub_date'] = int(time.time())
                     self.shouldGetData = False
                     return
 
@@ -211,7 +198,9 @@ class bitsearch(object):
             if tag == self.DIV and not self.insideSearchResultItem and self.insideSearchResultItemContainer:
                 self.insideSearchResultItemContainer = False
                 self.row['engine_url'] = self.url
-                prettyPrinter(self.row)
+                if 'name' in self.row and 'link' in self.row:
+                    prettyPrinter(self.row)
+                self.row = {}  # final dictionary clearing to avoid memory leaks
                 self.column = 0
                 self.metadata = 0
                 return
@@ -233,8 +222,14 @@ class bitsearch(object):
         what = what.replace(' ', '+')
         page = 1
 
-        page_url = f'{self.url}/search?q={what}&page={page}'
-        retrievedHtml = retrieve_url(page_url)
+        try:
+            page_url = f'{self.url}/search?q={what}&page={page}'
+            retrievedHtml = retrieve_url(page_url)
+            if not retrievedHtml:
+                return
+        except:
+            return
+
         results_matches = re.finditer(self.results_regex, retrievedHtml, re.MULTILINE)
         results_array = [x.group() for x in results_matches]
 
@@ -254,9 +249,11 @@ class bitsearch(object):
 
                 try:
                     retrievedHtml = retrieve_url(page_url)
+                    if not retrievedHtml:
+                        break  # stop if page returns empty
                     parser.feed(retrievedHtml)
                 except:
-                    pass
+                    break  # immediate exit on network error
                 page += 1
                 time.sleep(0.75)
         parser.close()
